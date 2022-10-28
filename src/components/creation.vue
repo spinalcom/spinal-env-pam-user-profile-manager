@@ -173,10 +173,6 @@ class CreationComponent extends Vue {
     }
   }
 
-  ///////////////////////////////////////////////////////////
-  //                computed function                      //
-  ///////////////////////////////////////////////////////////
-
   get getPortofolioBuilding() {
     return this.portofolioSelected.buildings.map((el: any) => el.name);
   }
@@ -186,10 +182,6 @@ class CreationComponent extends Vue {
 
     return false;
   }
-
-  ///////////////////////////////////////////////////////////
-  //                Watch function                         //
-  ///////////////////////////////////////////////////////////
 
   @Watch("portofolios")
   watchPortofolios() {
@@ -205,10 +197,6 @@ class CreationComponent extends Vue {
   watchEditMode(newValue: boolean) {
     this._initProfile();
   }
-
-  //////////////////////////////////////////
-  //              UTILS                   //
-  //////////////////////////////////////////
 
   _getDiffBetweenProfile() {
     const toCreate = this._getProfileCreationData();

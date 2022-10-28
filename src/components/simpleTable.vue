@@ -83,7 +83,7 @@ const TableComponentProps = Vue.extend({
 });
 
 @Component
-export default class TableComponent extends TableComponentProps {
+class TableComponent extends TableComponentProps {
   @Prop() items!: any;
   @Prop() edit!: boolean;
   @Prop() itemToSelect!: any[];
@@ -113,9 +113,6 @@ export default class TableComponent extends TableComponentProps {
   //   }
   // }
 
-  /////////////////////////////////////////////
-  //              Select function            //
-  /////////////////////////////////////////////
   allItemsAreSelected = false;
 
   selectAll() {
@@ -134,6 +131,8 @@ export default class TableComponent extends TableComponentProps {
     return true;
   }
 }
+
+export default TableComponent;
 </script>
     
     <style lang="scss">
