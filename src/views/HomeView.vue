@@ -32,16 +32,23 @@ with this file. If not, see
                  @edit="gotToEditPage"
                  @delete="deleteProfile" />
 
-    <CreationComponent v-show="[STATES.creation, STATES.edit].indexOf(actualState) !== -1"
+    <CreationComponent v-else-if="[STATES.creation, STATES.edit].indexOf(actualState) !== -1"
                        :profileSelected="selectedProfile"
                        :edit="actualState === STATES.edit"
                        @create="createProfile"
                        @goBack="goToHomePage"
                        @edit="editProfile" />
 
-    <ProfileDetail v-show="
-                       actualState===STATES.view"
+    <ProfileDetail v-else-if="actualState===STATES.view"
                    :profileSelected="selectedProfile" />
+
+    <div class="loading"
+         v-else-if="actualState === STATES.loading">
+
+      <v-progress-circular :size="70"
+                           color="primary"
+                           indeterminate></v-progress-circular>
+    </div>
 
   </v-container>
 </template>
@@ -62,12 +69,11 @@ import { Action } from "vuex-class";
     ProfileDetail,
   },
 })
-export default class HomeComponent extends Vue {
+class HomeComponent extends Vue {
   selectedProfile: any = null;
 
   @Action getAllUserProfiles!: any;
   @Action getAllPortofolios!: any;
-  @Action getAllBosRequest!: any;
   @Action createUserProfile!: any;
   @Action deleteUserProfile!: any;
   @Action editUserProfile!: any;
@@ -77,21 +83,21 @@ export default class HomeComponent extends Vue {
     creation: 1,
     edit: 2,
     view: 3,
+    loading: 4,
   });
 
-  actualState: any = this.STATES.home;
+  actualState: any = this.STATES.loading;
 
   async mounted() {
-    await Promise.all([
-      this.getAllUserProfiles(),
-      this.getAllPortofolios(),
-      this.getAllBosRequest(),
-    ]);
+    this.goToLoadingPage();
+    await Promise.all([this.getAllUserProfiles(), this.getAllPortofolios()]);
+    this.goToHomePage();
   }
 
   async createProfile(profileInfo: any) {
     let isSuccess;
     try {
+      this.goToLoadingPage();
       await this.createUserProfile(profileInfo);
       isSuccess = true;
     } catch (error) {
@@ -106,14 +112,14 @@ export default class HomeComponent extends Vue {
       showConfirmButton: false,
       timer: 3000,
       icon: isSuccess ? "success" : "error",
-      text: isSuccess ? "profil ajouté" : "oups, une erreur s'est produite !",
+      text: isSuccess ? "profile ajouté" : "oups, une erreur s'est produite !",
     });
   }
 
   async editProfile({ data, profileId }: any) {
     let isSuccess;
     try {
-      console.log(data);
+      this.goToLoadingPage();
       await this.editUserProfile({ profileId, data });
       isSuccess = true;
     } catch (error) {
@@ -147,6 +153,10 @@ export default class HomeComponent extends Vue {
 
   goToHomePage() {
     this.actualState = this.STATES.home;
+  }
+
+  goToLoadingPage() {
+    this.actualState = this.STATES.loading;
   }
 
   deleteProfile(item: any) {
@@ -185,6 +195,8 @@ export default class HomeComponent extends Vue {
     });
   }
 }
+
+export default HomeComponent;
 </script>
 
 <style  lang="scss" scoped>
@@ -196,34 +208,40 @@ $header-margin-bottom: 10px;
   width: 100%;
   height: 100%;
   background: #e6edef;
-
-  .header {
+  .loading {
     width: 100%;
-    height: $header-height;
-    margin-bottom: $header-margin-bottom;
+    height: 100%;
     display: flex;
-    justify-content: flex-end;
-
-    .btnCard {
-      min-width: 250px;
-      height: $header-height;
-      border-radius: 7px;
-      padding: 10px;
-      background-color: $page-background !important;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-
-      .button {
-        height: 100%;
-        color: #fff;
-
-        .btnIcon {
-          margin-right: 5px;
-        }
-      }
-    }
+    justify-content: center;
+    align-items: center;
   }
+  // .header {
+  //   width: 100%;
+  //   height: $header-height;
+  //   margin-bottom: $header-margin-bottom;
+  //   display: flex;
+  //   justify-content: flex-end;
+
+  //   .btnCard {
+  //     min-width: 250px;
+  //     height: $header-height;
+  //     border-radius: 7px;
+  //     padding: 10px;
+  //     background-color: $page-background !important;
+  //     display: flex;
+  //     justify-content: center;
+  //     align-items: center;
+
+  //     .button {
+  //       height: 100%;
+  //       color: #fff;
+
+  //       .btnIcon {
+  //         margin-right: 5px;
+  //       }
+  //     }
+  //   }
+  // }
 }
 </style>
 

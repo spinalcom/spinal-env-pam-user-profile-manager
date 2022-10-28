@@ -50,6 +50,7 @@ export function deleteUserProfileRequest(profileId: string) {
 
 
 
+
 export function editUserProfileRequest(profileId: string, newData: any) {
     return http.put(`/user_profile/edit_profile/${profileId}`, newData);
 }
@@ -71,5 +72,9 @@ export function getAllBosRequest() {
         console.error(error)
         return { data: [] }
     }
-
 }
+
+export function getAllApisRequest() {
+    return http.get("/get_all_api_route");
+}
+

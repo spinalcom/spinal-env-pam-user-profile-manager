@@ -31,7 +31,8 @@ import {
   deleteUserProfileRequest,
   editUserProfileRequest,
   getAllPortofoliosRequest,
-  getAllBosRequest
+  getAllBosRequest,
+  getAllApisRequest
 } from "../requests";
 
 import {
@@ -40,7 +41,8 @@ import {
   UPDATE_PROFILE,
   ADD_PROFILE,
   SET_APPS,
-  SET_BOS
+  SET_BOS,
+  SET_APIS
 } from "./mutations-constants";
 
 Vue.use(Vuex)
@@ -50,6 +52,7 @@ export default new Vuex.Store({
     profiles: [],
     portofolios: null,
     bos: null,
+    apis: null,
     context: null
   },
   getters: {
@@ -78,6 +81,9 @@ export default new Vuex.Store({
     [SET_BOS](state, playload) {
       state.bos = playload;
     },
+    [SET_APIS](state, playload) {
+      state.apis = playload;
+    }
   },
   actions: {
     async getAllUserProfiles({ commit }: any) {
@@ -108,16 +114,21 @@ export default new Vuex.Store({
     async getAllPortofolios({ commit, state }) {
       if (state.portofolios) return state.portofolios;
       const { data } = await getAllPortofoliosRequest();
-      console.log(data)
       commit(SET_APPS, data);
     },
 
-    async getAllBosRequest({ commit, state }) {
+    async getAllBos({ commit, state }) {
       if (state.bos) return state.bos;
 
       const { data } = await getAllBosRequest();
-      console.log(data)
       commit(SET_BOS, data);
+    },
+
+    async getAllApis({ commit, state }) {
+      if (state.apis) return state.apis;
+
+      const { data } = await getAllApisRequest();
+      commit(SET_APIS, data);
     }
 
   },

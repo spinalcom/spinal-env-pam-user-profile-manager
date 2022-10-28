@@ -23,8 +23,8 @@ with this file. If not, see
 -->
 
 <template>
-  <div class="creationContainer">
-    <v-card class="header">
+  <v-card class="creationContainer">
+    <div class="header">
       <div class="leftDiv">
         <div class="back">
           <v-btn rounded
@@ -35,16 +35,17 @@ with this file. If not, see
             <v-icon left>
               mdi-arrow-left-thin
             </v-icon>
-            BACK
+            Retour
           </v-btn>
         </div>
         <div class="_title">ajouter un profile d'utilisateur</div>
         <div class="description">
-          <p>Entrez un nom de profil d'utilisateur</p>
+          <p>Entrez un nom de profile d'utilisateur</p>
           <p>Sélectionnez son périmètre ci-dessous :</p>
         </div>
         <div class="searchDiv">
           <v-text-field solo
+                        outlined
                         flat
                         label="nom du profil"
                         hide-details="auto"
@@ -55,111 +56,135 @@ with this file. If not, see
       <div class="rightDiv">
         <v-btn class="button"
                color="#14202c"
-               @click="saveProfile">
+               @click="saveProfile"
+               :disabled="disableSaveButton">
           <v-icon class="btnIcon">
             mdi-content-save-outline
           </v-icon>
 
-          Enregister le profil
+          Enregister le profile
         </v-btn>
       </div>
-    </v-card>
+    </div>
 
     <div class="profileContent">
-      <v-card class="tableContent">
-        <TableComponent :headers="tableHeader"
-                        :items="portofoliosData"
-                        childrenKey="apps"
-                        title="Applications PAM"
-                        ref="portofolioListComponent" />
-      </v-card>
-
-      <v-card class="tableContent">
-        <TableComponent :headers="tableHeader"
-                        :items="bosData"
-                        childrenKey="apps"
-                        title="Applications Batiments"
-                        ref="BosListComponent" />
-      </v-card>
+      <TabsComponent :portofolios="portofoliosCopy"
+                     @selectPortofolio="selectPortofolio"
+                     :portofolioSelected="portofolioSelected"
+                     :profileSelected="profileSelected"
+                     :edit="edit" />
     </div>
-  </div>
+  </v-card>
 </template>
 
 <script lang="ts">
 import Vue from "vue";
-import { Component, Watch } from "vue-property-decorator";
-import TableComponent from "./tableComponent.vue";
+import { Component, Prop, Watch } from "vue-property-decorator";
+
 import { State } from "vuex-class";
+import TreeViewComponent from "./treeView.vue";
+import PortofolioList from "./portofolioList.vue";
+import TabsComponent from "./tabsComponent.vue";
 
 @Component({
-  props: {
-    edit: { type: Boolean, default: false },
-    profileSelected: {},
-  },
   components: {
-    TableComponent,
+    TreeViewComponent,
+    PortofolioList,
+    TabsComponent,
   },
 })
-export default class CreationComponent extends Vue {
-  @State portofolios!: any;
-  @State bos!: any;
-  @State context!: any;
+class CreationComponent extends Vue {
+  @Prop() edit!: boolean;
+  @Prop() profileSelected!: any;
+
+  tabsObject = Object.freeze({
+    Applications: "Applications de Portefolios",
+    Batiments: "Batiments",
+  });
 
   profileName = "";
-  tableHeader = [
+
+  headers: any = [
     {
-      text: "nom",
+      text: "Nom de l'application",
+      sortable: false,
       value: "name",
     },
   ];
-  portofoliosData = [];
-  bosData = [];
 
-  oldProfileData: any;
+  @State portofolios!: any;
+
+  portofolioSelected: any = null;
+  portofoliosCopy: any = null;
+
+  tabItems: string[] = Object.values(this.tabsObject);
+
+  tab = this.tabsObject.Applications;
+  buildingTab = null;
 
   mounted() {
-    console.log("mounted");
+    this._initProfile();
+  }
+
+  selectPortofolio(portofolio: any) {
+    this.portofolioSelected = portofolio;
   }
 
   goBack() {
-    this._initProfile();
     this.$emit("goBack");
   }
 
   saveProfile() {
     if (!this.edit) {
-      this.$emit("create", this._getProfileDataToCreate());
-    } else {
-      this.$emit("edit", {
-        profileId: this.oldProfileData.id,
-        data: this._getDiffBetweenProfile(),
-      });
+      const data = this._getProfileCreationData();
+      return this.$emit("create", data);
     }
 
-    this._initProfile();
+    this.$emit("edit", {
+      profileId: this.profileSelected.id,
+      data: this._getDiffBetweenProfile(),
+    });
+  }
+
+  _initProfile() {
+    this.profileName = !this.edit ? "" : this.profileSelected.name;
+    this.portofoliosCopy = this.createCopy(this.portofolios);
+  }
+
+  createCopy(liste: any) {
+    if (!liste) return [];
+    return liste.map((el: any) => {
+      const copy = this._addSelectedAttr(el);
+      copy.apps = copy.apps.map((app: any) => this._addSelectedAttr(app));
+      if (copy.buildings) copy.buildings = this.createCopy(copy.buildings);
+      return copy;
+    });
+  }
+
+  getItemToSelect(parentId: string, isBuilding = false) {
+    if (!this.edit) return [];
+
+    if (!isBuilding) {
+      const found = this.profileSelected.authorized.find(
+        (el: any) => el.id === parentId
+      );
+
+      return found ? found.apps : [];
+    }
   }
 
   ///////////////////////////////////////////////////////////
   //                computed function                      //
   ///////////////////////////////////////////////////////////
 
-  get disableSaveButton() {
-    if (this.profileName.length === 0) return true;
-    const portofolioSelected = this.getItemSelected(
-      this.portofoliosData,
-      "apps"
-    );
-    const bosSelected = this.getItemSelected(this.bosData, "apps");
-
-    return portofolioSelected || bosSelected ? false : true;
+  get getPortofolioBuilding() {
+    return this.portofolioSelected.buildings.map((el: any) => el.name);
   }
 
-  getItemSelected(liste: any[], childrenKey = "children") {
-    return liste.find((el: any) => {
-      if (el.selected) return true;
-      const found = el[childrenKey].find((child: any) => child.selected);
-      return found ? true : false;
-    });
+  get disableSaveButton() {
+    if (this.profileName.length === 0) return true;
+
+    return false;
   }
 
   ///////////////////////////////////////////////////////////
@@ -167,240 +192,134 @@ export default class CreationComponent extends Vue {
   ///////////////////////////////////////////////////////////
 
   @Watch("portofolios")
-  watchApps(newValue: any) {
-    this._initPortofolios(newValue);
+  watchPortofolios() {
+    this._initProfile();
   }
 
-  @Watch("bos")
-  watchBos(newValue: any) {
-    this._initBos(newValue);
-  }
+  // @Watch("bos")
+  // watchBos(newValue: any) {
+  //   this._initBos(newValue);
+  // }
 
   @Watch("edit")
   watchEditMode(newValue: boolean) {
     this._initProfile();
-
-    if (newValue) {
-      this.profileName = this.profileSelected.name;
-      this.oldProfileData = Object.assign({}, this.profileSelected);
-      this._selectItems(this.profileSelected.authorizedportofolio);
-      this._selectItems(this.profileSelected.authorizedBos, false);
-    }
   }
 
   //////////////////////////////////////////
   //              UTILS                   //
   //////////////////////////////////////////
 
-  _initProfile(): boolean {
-    this.profileName = "";
-    this._initPortofolios();
-    this._initBos();
-  }
-
-  _initPortofolios() {
-    this.portofoliosData = this.portofolios.map((el: any) => {
-      return {
-        selected: false,
-        ...el,
-        apps: el.apps.map((app: any) => {
-          app.selected = false;
-          return app;
-        }),
-      };
-    });
-  }
-
-  _initBos(bos?: any) {
-    this.bosData = this.bos.map((el: any) => {
-      return {
-        selected: false,
-        ...el,
-        apps: el.apps.map((app: any) => {
-          app.selected = false;
-          return app;
-        }),
-      };
-    });
-    // if (!bos) {
-    //   bos = this.contextsdata.find(
-    //     (el) => el.name.toLocaleLowerCase() === "buildings"
-    //   );
-    // }
-    // if (bos)
-    //   bos.children = this.bos.map((el: any) => {
-    //     const temp = Object.assign({}, el);
-    //     temp.selected = false;
-    //     return temp;
-    //   });
-  }
-
-  _getPortofolioSelected(liste: any[]): string[] {
-    return liste.reduce((liste: any, item: any) => {
-      const apps = item.selected
-        ? item.apps
-        : item.apps.filter((el: any) => el.selected);
-
-      if (apps && apps.length > 0) {
-        liste.push({
-          portofolioId: item.id,
-          appsIds: apps.map((el: any) => el.id),
-        });
-      }
-      return liste;
-
-      // if (item.selected) liste.push(...item.children.map((el: any) => el.id));
-      // else
-      //   liste.push(
-      //     ...item.children.reduce((l: any[], el: any) => {
-      //       if (el.selected) l.push(el.id);
-      //       return l;
-      //     }, [])
-      //   );
-      // return liste;
-    }, []);
-  }
-
-  _getBosSelected(liste: any[]): string[] {
-    return liste.reduce((liste: any, item: any) => {
-      const apps = item.selected
-        ? item.apps
-        : item.apps.filter((el: any) => el.selected);
-
-      if (apps && apps.length > 0) {
-        liste.push({
-          buildingId: item.id,
-          appsIds: apps.map((el: any) => el.id),
-        });
-      }
-      return liste;
-
-      // if (item.selected) liste.push(...item.children.map((el: any) => el.id));
-      // else
-      //   liste.push(
-      //     ...item.children.reduce((l: any[], el: any) => {
-      //       if (el.selected) l.push(el.id);
-      //       return l;
-      //     }, [])
-      //   );
-      // return liste;
-    }, []);
-  }
-
-  _isSelected(liste: string[], id: string): boolean {
-    const found = liste.find((el: string) => el === id);
-    return found ? true : false;
-  }
-
-  _getProfileDataToCreate() {
-    return {
-      name:
-        this.profileName.trim().toLocaleLowerCase() || `Profile-${Date.now()}`,
-      authorizePortofolio: this._getPortofolioSelected(this.portofoliosData),
-      authorizeBos: this._getBosSelected(this.bosData),
-    };
-  }
-
   _getDiffBetweenProfile() {
-    const data: any = this._getProfileDataToCreate();
-    data.unauthorizePortofolio = this._getPortofolioToUnauthorize(
-      data.authorizePortofolio
-    );
+    const toCreate = this._getProfileCreationData();
+    const obj = this._convertProfileToObj(this.profileSelected);
 
-    data.unauthorizeBos = this._getBosToUnauthorize(data.authorizeBos);
-    return data;
-  }
+    for (const portofolio of toCreate.authorize) {
+      const appsIds = portofolio.appsIds;
+      const objData = obj[portofolio.portofolioId]?.apps || {};
 
-  _getPortofolioToUnauthorize(portofolios: any) {
-    return this.oldProfileData.authorizedportofolio.reduce(
-      (liste: any[], item: any) => {
-        console.log(item);
-        const found = portofolios.find(({ portofolioId }: any) => {
-          return portofolioId === item.id;
-        });
+      portofolio.unauthorizeAppsIds = this._getAppsToUnauthorize(
+        appsIds,
+        objData
+      );
 
-        let apps = [];
+      for (const building of portofolio.building) {
+        const buildingAppsIds = building.appsIds;
+        const buildingObjData =
+          obj[portofolio.portofolioId]?.buildings[building.buildingId] || {};
 
-        if (!found) {
-          apps = item.apps;
-        } else {
-          apps = item.apps.filter(({ id }: { id: string }) => {
-            return !found.appsIds.some((el: string) => el === id);
-          });
-        }
-
-        if (apps.length > 0) {
-          liste.push({
-            portofolioId: item.id,
-            appsIds: apps.map(({ id }: any) => id),
-          });
-        }
-
-        return liste;
-      },
-      []
-    );
-  }
-
-  _getBosToUnauthorize(bos: any) {
-    return this.oldProfileData.authorizedBos.reduce(
-      (liste: any[], item: any) => {
-        const found = bos.find(({ buildingId }: any) => {
-          return buildingId === item.id;
-        });
-
-        let apps = [];
-
-        if (!found) {
-          apps = item.apps;
-        } else {
-          apps = item.apps.filter(({ id }: { id: string }) => {
-            return !found.appsIds.some((el: string) => el === id);
-          });
-        }
-
-        if (apps.length > 0) {
-          liste.push({
-            buildingId: item.id,
-            appsIds: apps.map(({ id }: any) => id),
-          });
-        }
-
-        return liste;
-      },
-      []
-    );
-  }
-
-  _selectItems(liste: any[], isPortofolio = true) {
-    let componentName = isPortofolio
-      ? "portofolioListComponent"
-      : "BosListComponent";
-
-    let items = isPortofolio ? this.portofoliosData : this.bosData;
-
-    let component: any = this.$refs[componentName];
-    if (!component) return;
-    if (Array.isArray(component)) component = component[0];
-    const obj: any = {};
-
-    for (const item of liste) {
-      const category =
-        obj[item.id] || items.find((el: any) => el.id === item.id);
-
-      obj[item.id] = category;
-      const apps = item.apps;
-
-      for (const { id } of apps) {
-        const found = category.apps.find((el: any) => el.id === id);
-        if (found) {
-          found.selected = true;
-          component.selectSubItem(category, found);
-        }
+        building.unauthorizeAppsIds = this._getAppsToUnauthorize(
+          buildingAppsIds,
+          buildingObjData
+        );
       }
     }
+
+    return toCreate;
+  }
+
+  _getAppsToUnauthorize(apps: any, obj: any) {
+    if (Object.keys(obj).length === 0) return [];
+    for (const app of apps) {
+      delete obj[app];
+    }
+
+    return Object.keys(obj);
+  }
+
+  _addSelectedAttr(element: any) {
+    const copy = JSON.parse(JSON.stringify(element));
+    copy.selected = false;
+    return copy;
+  }
+
+  _getProfileCreationData() {
+    return this.portofoliosCopy.reduce(
+      (liste: any, item: any) => {
+        const obj = this._formatData(item);
+        liste.authorize.push(obj);
+
+        return liste;
+      },
+      { name: this.profileName, authorize: [] }
+    );
+  }
+
+  _formatData(item: any, idAttr = "portofolioId") {
+    const obj: any = {
+      [idAttr]: item.id,
+      appsIds: this._getSelected(item.apps),
+    };
+
+    if (item.buildings) {
+      obj.building = item.buildings.map((el: any) =>
+        this._formatData(el, "buildingId")
+      );
+    }
+
+    return obj;
+  }
+
+  _getSelected(arr: any) {
+    return arr.reduce((liste: any[], item: any) => {
+      if (item.selected) liste.push(item.id);
+      return liste;
+    }, []);
+  }
+
+  _convertProfileToObj(profile: any) {
+    console.log(profile);
+    const obj: any = {};
+    for (const { id, apps, buildings } of profile.authorized) {
+      obj[id] = {};
+      obj[id]["apps"] = this._convertAppsToObj(apps);
+      obj[id]["buildings"] = this._convertBuildings(buildings);
+    }
+
+    return obj;
+  }
+
+  _convertBuildings(buildings: any) {
+    const obj: { [key: string]: any } = {};
+    for (const { id, apps } of buildings) {
+      obj[id] = this._convertAppsToObj(apps);
+    }
+
+    return obj;
+  }
+
+  _convertAppsToObj(apps: any) {
+    const obj: { [key: string]: any } = {};
+
+    for (const item of apps) {
+      obj[item.id] = item;
+    }
+
+    return obj;
   }
 }
+
+export default CreationComponent;
 </script>
 
 <style lang="scss" scoped>
@@ -412,12 +331,13 @@ $header-margin-bottom: 10px;
   width: 100%;
   height: calc(100% - #{$header-margin-top});
   margin-top: $header-margin-top !important;
+  background: #f9f9f9;
+  padding: 15px;
+
   .header {
     height: $header-height !important;
     display: flex;
     justify-content: space-between;
-    padding: 10px;
-    background: #f9f9f9;
     margin-bottom: $header-margin-bottom;
     .leftDiv {
       width: 35%;
@@ -456,12 +376,82 @@ $header-margin-bottom: 10px;
   .profileContent {
     width: 100%;
     height: calc(100% - #{$header-height + $header-margin-bottom});
-    display: flex;
-    justify-content: space-between;
-    .tableContent {
-      width: 49%;
-      height: 100%;
-    }
+    // display: flex;
+    // justify-content: space-between;
+
+    // .portofolioList {
+    //   width: 20%;
+    //   height: 100%;
+    //   border-right: 1px solid grey;
+    // }
+
+    // .content {
+    //   width: 79%;
+    //   height: 100%;
+    //   .empty {
+    //     width: 100%;
+    //     height: 100%;
+    //     display: flex;
+    //     align-items: center;
+    //     justify-content: center;
+    //     font-size: 1.6em;
+    //   }
+
+    //   .tabs {
+    //     width: 100%;
+    //     height: 100%;
+
+    //     .tabsHeader {
+    //       width: 100%;
+    //       height: 50px;
+    //     }
+
+    //     .tabsItems {
+    //       width: 100%;
+    //       height: calc(100% - 50px);
+    //       overflow: auto;
+
+    //       // .v-window__container {
+    //       //   height: 100% !important;
+    //       //   background: yellow;
+    //       // }
+
+    //       .buildingTabsDiv {
+    //         width: 100%;
+    //         height: 100%;
+    //         .empty {
+    //           width: 100%;
+    //           height: 100%;
+    //         }
+    //         .buildingTabItems {
+    //           width: 100%;
+    //           height: 100%;
+    //         }
+    //         .buildingTabs {
+    //           width: 100%;
+    //           height: 50px;
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+
+    // display: flex;
+    // justify-content: space-between;
   }
+}
+</style>
+
+<style>
+.v-window__container {
+  height: 100%;
+}
+
+.v-window-item {
+  height: calc(100% - 50px);
+}
+
+.buildingTabItems .v-window-item {
+  height: 100%;
 }
 </style>

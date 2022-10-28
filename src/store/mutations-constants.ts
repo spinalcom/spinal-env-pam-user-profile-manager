@@ -29,3 +29,4 @@ export const UPDATE_PROFILE = "UPDATE_PROFILE";
 export const ADD_PROFILE = "ADD_PROFILE";
 export const SET_APPS = "SET_APPS";
 export const SET_BOS = "SET_BOS";
+export const SET_APIS = "SET_APIS";
